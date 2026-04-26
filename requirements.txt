@@ -1,0 +1,6 @@
+aiogram==3.4.1
+sqlalchemy==2.0.25
+asyncpg==0.29.0
+apscheduler==3.10.4
+environs==9.5.0
+redis==5.0.1
