@@ -1,4 +1,5 @@
-aiogram==3.4.1
-SQLAlchemy==2.0.21
-APScheduler==3.10.1
-redis==5.0.1
+environs
+sqlalchemy
+psycopg2-binary
+aiogram
+
