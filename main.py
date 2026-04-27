@@ -2,17 +2,12 @@ import asyncio
 import logging
 import sys
 
-# استيراد المكونات الأساسية للبوت
-from aiogram import Bot, Dispatcher
-from aiogram.enums import ParseMode
-from aiogram.client.default import DefaultBotProperties
-
 # استيراد الإعدادات والملفات التي أنشأناها
-from app.config.settings import config
-from app.database.requests import db_main
-from app.handlers.user_handlers import user_router
-from app.middlewares.check_sub import CheckSubscriptionMiddleware
-from app.services.scheduler import start_scheduler
+from config.settings import config
+from database.requests import db_main
+from handlers.user_handlers import user_router
+from middlewares.check_sub import CheckSubscriptionMiddleware
+from services.scheduler import start_scheduler
 
 # إعداد السجلات (Logs) لمراقبة عمل البوت في Railway
 logging.basicConfig(
