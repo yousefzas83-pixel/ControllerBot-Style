@@ -1,4 +1,4 @@
-from environs import Env
+import os
 from dataclasses import dataclass
 
 @dataclass
@@ -9,13 +9,12 @@ class Settings:
     redis_url: str
 
 def load_settings():
-    env = Env()
-    env.read_env()
+    # استخدام os.getenv مباشرة لجلب البيانات من إعدادات Railway
     return Settings(
-        bot_token=env.str("BOT_TOKEN", default="MISSING"),
-        admin_id=env.int("ADMIN_ID", default=0),
-        db_url=env.str("DATABASE_URL", default="sqlite:///db.sqlite3"),
-        redis_url=env.str("REDIS_URL", default="redis://localhost:6379/0")
+        bot_token=os.getenv("BOT_TOKEN", "MISSING"),
+        admin_id=int(os.getenv("ADMIN_ID", 0)),
+        db_url=os.getenv("DATABASE_URL", "sqlite:///db.sqlite3"),
+        redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0")
     )
 
 config = load_settings()
