@@ -1,10 +1,15 @@
-from app.database.models import User, Channel, Base
+from models import User, Channel, Base
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy import select, update, delete
-from app.config.settings import config
+import settings  # استيراد ملف الإعدادات مباشرة من المجلد الرئيسي
 from datetime import datetime
 
+# استخراج كائن config من ملف settings
+config = settings.config
+
 # إعداد محرك قاعدة البيانات والاتصال
+# تأكد أن رابط DATABASE_URL في Railway يبدأ بـ postgresql+asyncpg:// إذا كنت تستخدم Postgres
+# أو sqlite+aiosqlite:///db.sqlite3 إذا كنت تستخدم SQLite
 engine = create_async_engine(url=config.db_url, echo=True)
 async_session = async_sessionmaker(engine)
 
