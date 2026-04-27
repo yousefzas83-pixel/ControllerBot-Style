@@ -1,16 +1,21 @@
 from models import User, Channel, Base
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy import select, update, delete
-import settings  # استيراد ملف الإعدادات مباشرة من المجلد الرئيسي
+import settings
 from datetime import datetime
 
 # استخراج كائن config من ملف settings
 config = settings.config
 
+# --- تعديل الرابط ليتوافق مع المحرك غير المتزامن ---
+db_url = config.db_url
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+elif db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+
 # إعداد محرك قاعدة البيانات والاتصال
-# تأكد أن رابط DATABASE_URL في Railway يبدأ بـ postgresql+asyncpg:// إذا كنت تستخدم Postgres
-# أو sqlite+aiosqlite:///db.sqlite3 إذا كنت تستخدم SQLite
-engine = create_async_engine(url=config.db_url, echo=True)
+engine = create_async_engine(url=db_url, echo=True)
 async_session = async_sessionmaker(engine)
 
 async def db_main():
@@ -41,7 +46,6 @@ async def get_user_data(tg_id: int):
 async def add_channel(owner_id: int, channel_id: int, name: str):
     """إضافة قناة جديدة لقاعدة البيانات"""
     async with async_session() as session:
-        # التحقق إذا كانت القناة مضافة مسبقاً
         channel = await session.scalar(select(Channel).where(Channel.channel_id == channel_id))
         
         if not channel:
@@ -54,7 +58,7 @@ async def get_my_channels(owner_id: int):
     """جلب كافة القنوات التابعة لمستخدم معين"""
     async with async_session() as session:
         result = await session.scalars(select(Channel).where(Channel.owner_id == owner_id))
-        return result.all()
+        return list(result.all())
 
 # --- عمليات الاشتراكات (للأدمن) ---
 
@@ -66,3 +70,4 @@ async def update_subscription(tg_id: int, plan_name: str, expire_date: datetime)
             .values(plan=plan_name, sub_expire=expire_date)
         )
         await session.commit()
+        
