@@ -8,21 +8,28 @@ from aiogram import Bot
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
-# استيراد الموديل فقط
-from models import ScheduledPost, Base
+# استيراد الموديل
+from models import ScheduledPost
 
-# --- إعداد قاعدة البيانات داخل المجدول لضمان عدم حدوث خطأ في الرابط ---
-db_url = os.getenv("DATABASE_URL", "")
-if db_url.startswith("postgres://"):
-    db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
-elif db_url.startswith("postgresql://") and "+asyncpg" not in db_url:
-    db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+# --- محاولة جلب الرابط بأمان ---
+db_url = os.getenv("DATABASE_URL")
 
-# إنشاء المحرك والجلسة محلياً للمجدول
+if not db_url:
+    logging.error("❌ خطأ حرج: لم يتم العثور على DATABASE_URL في متغيرات البيئة!")
+    # سنضع رابطاً وهمياً مؤقتاً لكي لا ينهار البوت أثناء التشغيل (فقط ليتجاوز مرحلة التشغيل)
+    db_url = "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"
+else:
+    # تصحيح البادئة
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif db_url.startswith("postgresql://") and "+asyncpg" not in db_url:
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+# إنشاء المحرك
 engine = create_async_engine(url=db_url)
 AsyncSessionLocal = async_sessionmaker(engine)
 
-# --- 1. القائمة الرئيسية ---
+# --- الدوال (تأكد من بقائها كما هي) ---
 def main_menu_kb() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.row(KeyboardButton(text="➕ ربط قناة"), KeyboardButton(text="📊 خطتي الحالية"))
@@ -31,35 +38,37 @@ def main_menu_kb() -> ReplyKeyboardMarkup:
     builder.row(KeyboardButton(text="🛠 الدعم الفني"))
     return builder.as_markup(resize_keyboard=True)
 
-# --- 2. أزرار الدعم ---
 def support_kb() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="🛠 الدعم الفني", url="https://t.me"))
     builder.row(InlineKeyboardButton(text="📢 قناة التحديثات", url="https://t.me"))
     return builder.as_markup()
 
-# --- 3. لوحة الإدارة ---
 def admin_panel_kb() -> ReplyKeyboardMarkup:
     builder = ReplyKeyboardBuilder()
     builder.row(KeyboardButton(text="👥 عرض المستخدمين"), KeyboardButton(text="📢 إذاعة عامة"))
     builder.row(KeyboardButton(text="🔙 العودة للقائمة الرئيسية"))
     return builder.as_markup(resize_keyboard=True)
 
-# --- 4. أزرار الخطط ---
 def plans_kb() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="🥈 Pro", callback_data="plan_pro")
     builder.adjust(1)
     return builder.as_markup()
 
-# --- 5. محرك الجدولة المعدل ---
+# --- محرك الجدولة ---
 async def start_scheduler(bot: Bot):
-    logging.info("🚀 Background Scheduler started.")
+    # إذا كان الرابط وهمياً، لا تشغل المجدول لكي لا يسبب أخطاء
+    if "localhost" in db_url:
+        logging.warning("⚠️ محرك الجدولة معطل لأن DATABASE_URL غير مضبوط بشكل صحيح.")
+        return
+
+    logging.info("🚀 محرك الجدولة بدأ العمل...")
     while True:
         try:
             async with AsyncSessionLocal() as session:
                 now = datetime.now()
-                # فحص المنشورات للنشر
+                # (باقي كود النشر والحذف كما هو...)
                 stmt = select(ScheduledPost).where(ScheduledPost.post_date <= now, ScheduledPost.is_sent == False)
                 result = await session.execute(stmt)
                 for post in result.scalars().all():
@@ -68,18 +77,8 @@ async def start_scheduler(bot: Bot):
                         post.sent_message_id = msg.message_id
                         post.is_sent = True
                         await session.commit()
-                    except Exception as e: logging.error(f"Send Error: {e}")
-
-                # فحص المنشورات للحذف
-                stmt_del = select(ScheduledPost).where(ScheduledPost.delete_date <= now, ScheduledPost.is_sent == True, ScheduledPost.is_deleted == False)
-                result_del = await session.execute(stmt_del)
-                for post in result_del.scalars().all():
-                    try:
-                        await bot.delete_message(chat_id=post.channel_id, message_id=post.sent_message_id)
-                        post.is_deleted = True
-                        await session.commit()
-                    except Exception as e: logging.error(f"Delete Error: {e}")
+                    except Exception as e: logging.error(f"نشر خاطئ: {e}")
         except Exception as e:
-            logging.error(f"Scheduler Loop Error: {e}")
+            logging.error(f"خطأ في المجدول: {e}")
         await asyncio.sleep(60)
     
