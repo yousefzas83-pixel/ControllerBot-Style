@@ -1,18 +1,20 @@
 import asyncio
 import logging
 import sys
+import os
 from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 
-# استيراد الملفات
+# استيراد ملفات المشروع (تأكد أن هذه الملفات موجودة في GitHub)
 from requests import db_main
 from user_handlers import user_router
 from builders import start_scheduler 
 
-# التوكن المباشر الخاص بك (تأكد من صحته 100%)
-BOT_TOKEN = "7573887081:AAH8u8YI_T18l0z6O_EwN-N0_EwN-N0_EwN"
+# --- جلب التوكن بأمان من متغيرات البيئة (الأمان أولاً 🛡️) ---
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+# إعداد السجلات لمراقبة أداء البوت في Railway
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -20,33 +22,47 @@ logging.basicConfig(
 )
 
 async def main():
-    # إنشاء البوت
+    # التحقق من وجود التوكن لضمان عدم انهيار التطبيق
+    if not BOT_TOKEN:
+        logging.error("❌ خطأ حرج: BOT_TOKEN غير موجود في متغيرات Railway!")
+        return
+
+    # إنشاء كائن البوت
     bot = Bot(
         token=BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
     
-    # إنشاء الموزع
+    # إنشاء الموزع وتوصيل الرواتر (Handlers)
     dp = Dispatcher()
-
-    # تسجيل الراوتر الخاص بالأوامر
     dp.include_router(user_router)
 
     print("🚀 جاري تهيئة قاعدة البيانات والمجدول...")
     try:
+        # تشغيل تهيئة قاعدة البيانات
         await db_main()
+        # تشغيل محرك الجدولة (النشر والحذف التلقائي) في الخلفية
         asyncio.create_task(start_scheduler(bot))
+        print("✅ القاعدة والمجدول في حالة جاهزية.")
     except Exception as e:
-        print(f"⚠️ تنبيه: فشل تشغيل المجدول أو القاعدة، لكن البوت سيستمر: {e}")
+        logging.warning(f"⚠️ تنبيه في بدء التشغيل: {e}")
 
-    # بدء استقبال الرسائل
     try:
+        # حذف التحديثات المعلقة لضمان استجابة سريعة فور التشغيل
         await bot.delete_webhook(drop_pending_updates=True)
-        print("✨ البوت متصل الآن ويستقبل الأوامر!")
+        print("✨ البوت يعمل الآن بنجاح ويستقبل الأوامر!")
+        
+        # بدء استقبال الرسائل
         await dp.start_polling(bot)
+    except Exception as e:
+        logging.error(f"❌ خطأ غير متوقع أثناء تشغيل البوت: {e}")
     finally:
+        # إغلاق الجلسة عند التوقف
         await bot.session.close()
 
 if __name__ == "__main__":
-    asyncio.run(main())
-            
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logging.info("🛑 تم إيقاف البوت يدوياً.")
+        
