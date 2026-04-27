@@ -1,27 +1,24 @@
-from environs import Env
-from dataclasses import dataclass
+import os
 
-@dataclass
+# جلب المتغيرات مباشرة من النظام لضمان عدم ضياعها
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID", 0))
+
+# جلب وتصحيح رابط قاعدة البيانات
+raw_db_url = os.getenv("DATABASE_URL", "")
+
+if raw_db_url.startswith("postgres://"):
+    DATABASE_URL = raw_db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+elif raw_db_url.startswith("postgresql://"):
+    DATABASE_URL = raw_db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+else:
+    DATABASE_URL = raw_db_url
+
+# كلاس بسيط لتنظيم البيانات كما يحب الكود الخاص بك
 class Settings:
-    bot_token: str
-    admin_id: int
-    db_url: str
-    redis_url: str
+    def __init__(self):
+        self.bot_token = BOT_TOKEN
+        self.admin_id = ADMIN_ID
+        self.db_url = DATABASE_URL
 
-def load_settings():
-    env = Env()
-    env.read_env()
-    
-    # جلب الرابط وتصحيحه تلقائياً إذا كان يبدأ بـ postgres://
-    raw_db_url = env.str("DATABASE_URL")
-    if raw_db_url.startswith("postgres://"):
-        raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
-    
-    return Settings(
-        bot_token=env.str("BOT_TOKEN"),
-        admin_id=env.int("ADMIN_ID"), # تأكد أن هذا المتغير موجود في Railway وقيمته أرقام فقط
-        db_url=raw_db_url,
-        redis_url=env.str("REDIS_URL", "redis://localhost") # أضفنا قيمة افتراضية لتجنب الانهيار
-    )
-
-config = load_settings()
+config = Settings()
