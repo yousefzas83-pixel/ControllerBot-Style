@@ -1,40 +1,52 @@
-        kb.adjust(2)
-        await message.answer("⏱ هل تريد حذف المنشور تلقائياً بعد النشر؟", reply_markup=kb.as_markup())
-        await state.set_state(PostStates.waiting_for_delete_time)
-    except ValueError:
-        await message.answer("❌ التنسيق خاطئ! مثال: <code>2026-05-01 14:30</code>")
+import asyncio
+import logging
+import sys
+from aiogram import Bot, Dispatcher
+from aiogram.enums import ParseMode
+from aiogram.client.default import DefaultBotProperties
 
-@user_router.callback_query(F.data.startswith("del_"))
-async def finalize_post(callback: types.CallbackQuery, state: FSMContext):
-    hours = int(callback.data.split("_")[1])
-    data = await state.get_data()
-    post_date = datetime.strptime(data['post_time'], "%Y-%m-%d %H:%M")
-    delete_date = post_date + timedelta(hours=hours) if hours > 0 else None
+# استيراد الملفات
+from requests import db_main
+from user_handlers import user_router
+from builders import start_scheduler 
 
-    await rq.add_scheduled_post(
-        owner_id=callback.from_user.id,
-        channel_id=data['selected_channel'],
-        post_date=post_date,
-        message_id=data['msg_id'],
-        delete_date=delete_date
+# التوكن المباشر الخاص بك (تأكد من صحته 100%)
+BOT_TOKEN = "7573887081:AAH8u8YI_T18l0z6O_EwN-N0_EwN-N0_EwN"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+
+async def main():
+    # إنشاء البوت
+    bot = Bot(
+        token=BOT_TOKEN,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
-    await callback.message.answer(f"✅ تم الجدولة بنجاح!")
-    await state.clear()
-    await callback.answer()
-
-# --- 5. بقية الأزرار ---
-@user_router.message(F.text == "🛠 الدعم الفني")
-async def support_info(message: types.Message):
-    await message.answer("تواصل مع الإدارة مباشرة:", reply_markup=support_kb())
-
-@user_router.message(F.text == "📊 خطتي الحالية")
-async def my_plan(message: types.Message):
-    data = await rq.get_user_data(message.from_user.id)
-    plan = data.plan if data else "Free"
-    await message.answer(f"📋 <b>اشتراكك الحالي:</b>\n• الخطة: {plan}\n• الحالة: نشط ✅", parse_mode="HTML")
-
-@user_router.message(Command("admin"))
-async def admin_panel(message: types.Message):
-    if message.from_user.id == 8511180085: # تأكد من أن الـ ID صحيح
-        await message.answer("🛠 لوحة الإدارة:", reply_markup=admin_panel_kb())
     
+    # إنشاء الموزع
+    dp = Dispatcher()
+
+    # تسجيل الراوتر الخاص بالأوامر
+    dp.include_router(user_router)
+
+    print("🚀 جاري تهيئة قاعدة البيانات والمجدول...")
+    try:
+        await db_main()
+        asyncio.create_task(start_scheduler(bot))
+    except Exception as e:
+        print(f"⚠️ تنبيه: فشل تشغيل المجدول أو القاعدة، لكن البوت سيستمر: {e}")
+
+    # بدء استقبال الرسائل
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        print("✨ البوت متصل الآن ويستقبل الأوامر!")
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+            
