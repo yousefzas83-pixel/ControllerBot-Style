@@ -1,6 +1,6 @@
 from aiogram import Router, F, types
 from aiogram.filters import CommandStart, Command
-from app.keyboards.builders import main_menu_kb, plans_kb, support_kb
+from keyboards.builders import main_menu_kb, plans_kb, support_kb
 from datetime import datetime
 
 user_router = Router()
