@@ -1,6 +1,5 @@
-environs
-sqlalchemy
-psycopg2-binary
 aiogram
+sqlalchemy
 asyncpg
-
+environs
+psycopg2-binary
