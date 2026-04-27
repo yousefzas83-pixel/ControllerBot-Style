@@ -1,5 +1,4 @@
-aiogram==2.25.1
-aiohttp==3.8.5
+aiogram==3.4.1
 SQLAlchemy==2.0.21
 APScheduler==3.10.1
 environs==9.5.0
