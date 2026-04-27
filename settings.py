@@ -1,4 +1,4 @@
-import os
+from environs import Env
 from dataclasses import dataclass
 
 @dataclass
@@ -9,12 +9,19 @@ class Settings:
     redis_url: str
 
 def load_settings():
-    # استخدام os.getenv مباشرة لجلب البيانات من إعدادات Railway
+    env = Env()
+    env.read_env()
+    
+    # جلب الرابط وتصحيحه تلقائياً إذا كان يبدأ بـ postgres://
+    raw_db_url = env.str("DATABASE_URL")
+    if raw_db_url.startswith("postgres://"):
+        raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
+    
     return Settings(
-        bot_token=os.getenv("BOT_TOKEN", "MISSING"),
-        admin_id=int(os.getenv("ADMIN_ID", 0)),
-        db_url=os.getenv("DATABASE_URL", "sqlite:///db.sqlite3"),
-        redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        bot_token=env.str("BOT_TOKEN"),
+        admin_id=env.int("ADMIN_ID"), # تأكد أن هذا المتغير موجود في Railway وقيمته أرقام فقط
+        db_url=raw_db_url,
+        redis_url=env.str("REDIS_URL", "redis://localhost") # أضفنا قيمة افتراضية لتجنب الانهيار
     )
 
 config = load_settings()
